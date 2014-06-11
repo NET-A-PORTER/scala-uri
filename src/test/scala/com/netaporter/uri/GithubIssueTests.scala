@@ -100,6 +100,9 @@ class GithubIssueTests extends FlatSpec with Matchers with OptionValues {
 
   "Github Issue #55" should "now be fixed" in {
     val uri: Uri = "http://localhost:9002/iefjiefjief-efefeffe-fefefee/toto?access_token=ijifjijef-fekieifj-fefoejfoef&gquery=filter(time_before_closing%3C=45)"
+    println(uri.host)
+    println(uri.path)
+    println(uri.query)
     uri.query.param("gquery").value should equal("filter(time_before_closing<=45)")
     uri.toString should equal("http://localhost:9002/iefjiefjief-efefeffe-fefefee/toto?access_token=ijifjijef-fekieifj-fefoejfoef&gquery=filter(time_before_closing%3C=45)")
   }

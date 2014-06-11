@@ -9,16 +9,39 @@ import scala.Some
 
 class UriParser(val input: ParserInput, conf: UriConfig) extends Parser {
 
+  // -------------------------------------
+  // Define CharPredicates as specified in
+  //  - http://tools.ietf.org/html/rfc3986
+
+  val _unreserved = CharPredicate.AlphaNum ++ "-._~"
+  val _subDelim = "!$&'()*+,;="
+  val _pctEncoded = '%'
+
+  val _regName = _unreserved ++ _pctEncoded ++ _subDelim
+  val _ipv4 = CharPredicate.Digit ++ '.'
+  val _ipv6 = CharPredicate.HexDigit ++ ':'
+
+  val _pchar = _unreserved ++ _pctEncoded ++ _subDelim ++ ':' ++ '@'
+
+  val _userInfoChars = _unreserved ++ _pctEncoded ++ _subDelim ++ ':'
+  val _hostChars = _regName ++ _ipv4 ++ _ipv6
+  val _queryChars = _pchar ++ '/' ++ '?' -- '&'
+  val _matrixParamChars = _pchar -- '=' -- ';'
+  val _fragmentChars = _pchar ++ '/' ++ '?'
+
+  // -------------------------------------
+  // Define parser gammar
+
   def _scheme: Rule1[String] = rule {
     capture(oneOrMore(CharPredicate.AlphaNum))
   }
 
   def _host_name: Rule1[String] = rule {
-    capture(oneOrMore(!anyOf(":/?") ~ ANY))
+    capture(oneOrMore(_hostChars))
   }
 
   def _userInfo: Rule1[UserInfo] = rule {
-    capture(oneOrMore(!anyOf(":@") ~ ANY)) ~ optional(":" ~ capture(oneOrMore(!anyOf("@") ~ ANY))) ~ "@" ~> extractUserInfo
+    capture(oneOrMore(_userInfoChars)) ~ optional(":" ~ capture(oneOrMore(_userInfoChars))) ~ "@" ~> extractUserInfo
   }
 
   //TODO Try harder to make this a Rule1[Int] using ~> extractInt
@@ -31,11 +54,11 @@ class UriParser(val input: ParserInput, conf: UriConfig) extends Parser {
   }
 
   def _matrixParam: Rule1[Param] = rule {
-    capture(zeroOrMore(!anyOf(";/=?#") ~ ANY)) ~ "=" ~ capture(zeroOrMore(!anyOf(";/=?#") ~ ANY)) ~> extractTuple
+    capture(zeroOrMore(_matrixParamChars)) ~ "=" ~ capture(zeroOrMore(_matrixParamChars)) ~> extractTuple
   }
 
   def _plainPathPart: Rule1[String] = rule {
-    capture(zeroOrMore(!anyOf(";/?#") ~ ANY))
+    capture(zeroOrMore(_pchar))
   }
 
   def _pathSegment: Rule1[PathPart] = rule {
@@ -57,11 +80,11 @@ class UriParser(val input: ParserInput, conf: UriConfig) extends Parser {
   }
 
   def _queryParam: Rule1[Param] = rule {
-    capture(zeroOrMore(!anyOf("=&#") ~ ANY)) ~ "=" ~ capture(zeroOrMore(!anyOf("&#") ~ ANY)) ~> extractTuple
+    capture(oneOrMore(_queryChars)) ~ "=" ~ capture(zeroOrMore(_queryChars)) ~> extractTuple
   }
 
   def _queryTok: Rule1[Param] = rule {
-    capture(oneOrMore(!anyOf("=&#") ~ ANY)) ~> extractTok
+    capture(oneOrMore(_queryChars)) ~> extractTok
   }
 
   def _queryString: Rule1[QueryString] = rule {
@@ -69,7 +92,7 @@ class UriParser(val input: ParserInput, conf: UriConfig) extends Parser {
   }
 
   def _fragment: Rule1[String] = rule {
-    "#" ~ capture(zeroOrMore(!anyOf("#") ~ ANY))
+    "#" ~ capture(zeroOrMore(_fragmentChars))
   }
 
   def _abs_uri: Rule1[Uri] = rule {
