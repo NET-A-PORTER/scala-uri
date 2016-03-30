@@ -70,4 +70,6 @@ case class MatrixParams(part: String, params: ParamSeq) extends PathPart with Pa
 object PathPart {
   def apply(path: String, matrixParams: ParamSeq = Seq.empty) =
     if(matrixParams.isEmpty) new StringPathPart(path) else MatrixParams(path, matrixParams)
+
+  val Empty = new StringPathPart("")
 }

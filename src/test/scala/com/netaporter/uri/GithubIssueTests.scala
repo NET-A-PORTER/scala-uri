@@ -46,7 +46,7 @@ class GithubIssueTests extends FlatSpec with Matchers with OptionValues {
 
     uri.scheme should equal (None)
     uri.host should equal (None)
-    uri.path should equal ("/abc")
+    uri.path should equal ("abc")
   }
 
   "Github Issue #15" should "now be fixed. Empty Query String values are parsed" in {
@@ -172,5 +172,10 @@ class GithubIssueTests extends FlatSpec with Matchers with OptionValues {
 
     val withPathAndQuery = p / "some/path/segments" ? ("returnUrl" -> "http://localhost:1234/some/path/segments")
     withPathAndQuery.toString should equal("http://localhost:1234/some/path/segments?returnUrl=http://localhost:1234/some/path/segments")
+  }
+
+  "Github Issue #107" should "now be fixed. path and /path are now treated differently" in {
+    Uri.parse("path").toString should equal("path")
+    Uri.parse("/path").toString should equal("/path")
   }
 }

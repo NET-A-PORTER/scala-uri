@@ -33,17 +33,10 @@ class DefaultUriParser(val input: ParserInput, conf: UriConfig) extends Parser w
   }
 
   /**
-   * A sequence of path parts that MUST start with a slash
+   * A sequence of path parts
    */
-  def _abs_path: Rule1[Vector[PathPart]] = rule {
-    zeroOrMore("/" ~ _pathSegment) ~> extractPathParts
-  }
-
-  /**
-   * A sequence of path parts optionally starting with a slash
-   */
-  def _rel_path: Rule1[Vector[PathPart]] = rule {
-    optional("/") ~ zeroOrMore(_pathSegment).separatedBy("/") ~> extractPathParts
+  def _path: Rule1[Vector[PathPart]] = rule {
+    zeroOrMore(_pathSegment).separatedBy("/") ~> extractPathParts
   }
 
   def _queryParam: Rule1[Param] = rule {
@@ -63,15 +56,15 @@ class DefaultUriParser(val input: ParserInput, conf: UriConfig) extends Parser w
   }
 
   def _abs_uri: Rule1[Uri] = rule {
-    _scheme ~ "://" ~ optional(_authority) ~ _abs_path ~ optional(_queryString) ~ optional(_fragment) ~> extractAbsUri
+    _scheme ~ "://" ~ optional(_authority) ~ _path ~ optional(_queryString) ~ optional(_fragment) ~> extractAbsUri
   }
 
   def _protocol_rel_uri: Rule1[Uri] = rule {
-    "//" ~ optional(_authority) ~ _abs_path ~ optional(_queryString) ~ optional(_fragment) ~> extractProtocolRelUri
+    "//" ~ optional(_authority) ~ _path ~ optional(_queryString) ~ optional(_fragment) ~> extractProtocolRelUri
   }
 
   def _rel_uri: Rule1[Uri] = rule {
-    _rel_path ~ optional(_queryString) ~ optional(_fragment) ~> extractRelUri
+    _path ~ optional(_queryString) ~ optional(_fragment) ~> extractRelUri
   }
 
   def _uri: Rule1[Uri] = rule {
@@ -113,7 +106,7 @@ class DefaultUriParser(val input: ParserInput, conf: UriConfig) extends Parser w
       password = authority.flatMap(_.password),
       host = authority.map(_.host),
       port = authority.flatMap(_.port),
-      pathParts = pathParts,
+      rawPathParts = pathParts,
       query = query.getOrElse(EmptyQueryString),
       fragment = fragment
     )

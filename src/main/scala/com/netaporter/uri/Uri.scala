@@ -16,13 +16,23 @@ case class Uri (
   password: Option[String],
   host: Option[String],
   port: Option[Int],
-  pathParts: Seq[PathPart],
+  rawPathParts: Seq[PathPart],
   query: QueryString,
   fragment: Option[String]
 ) {
 
   lazy val hostParts: Seq[String] =
     host.map(h => h.split('.').toVector).getOrElse(Vector.empty)
+
+  /**
+    * Most of the time, we want to see the same path parts for:
+    *  /a/b/c and a/b/c
+    *
+    * `rawPathParts` has an leading empty PathPart for /a/b/c
+    */
+  lazy val pathParts: Seq[PathPart] = {
+    if(rawPathParts.head.part.isEmpty) rawPathParts.tail else rawPathParts
+  }
 
   def subdomain = hostParts.headOption
 
@@ -39,15 +49,23 @@ case class Uri (
     }
 
   def addMatrixParam(pp: String, k: String, v: String) = copy (
-    pathParts = pathParts.map {
+    rawPathParts = rawPathParts.map {
       case p: PathPart if p.part == pp => p.addParam(k -> Some(v))
       case x => x
     }
   )
 
   def addMatrixParam(k: String, v: String) = copy (
-    pathParts = pathParts.dropRight(1) :+ pathParts.last.addParam(k -> Some(v))
+    rawPathParts = rawPathParts.dropRight(1) :+ rawPathParts.last.addParam(k -> Some(v))
   )
+
+  def uriType: UriType = {
+    if(host.isDefined) {
+      if(scheme.isDefined) Absolute else ProtocolRelative
+    } else {
+      if(rawPathParts.head.part.isEmpty) SiteRootRelative else DocumentRelative
+    }
+  }
 
   /**
    * Adds a new Query String parameter key-value pair. If the value for the Query String parmeter is None, then this
@@ -132,8 +150,8 @@ case class Uri (
    * @return String containing the path for this Uri
    */
   def path(implicit c: UriConfig = UriConfig.default) =
-    if(pathParts.isEmpty) ""
-    else "/" + pathParts.map(_.partToString(c)).mkString("/")
+    if(rawPathParts.isEmpty) ""
+    else rawPathParts.map(_.partToString(c)).mkString("/")
 
   def queryStringRaw(implicit c: UriConfig = UriConfig.default) =
     queryString(c.withNoEncoding)
@@ -297,6 +315,12 @@ case class Uri (
   def toURI(implicit c: UriConfig = UriConfig.conservative) = new java.net.URI(toString())
 }
 
+sealed trait UriType
+case object Absolute extends UriType // e.g. http://test.com/index.html
+case object ProtocolRelative extends UriType // e.g. //test.com/index.html
+case object SiteRootRelative extends UriType // e.g. /index.html
+case object DocumentRelative extends UriType // e.g. index.html
+
 object Uri {
 
   def parse(s: CharSequence)(implicit config: UriConfig = UriConfig.default): Uri =
@@ -314,15 +338,19 @@ object Uri {
             pathParts: Seq[PathPart] = Seq.empty,
             query: QueryString = EmptyQueryString,
             fragment: String = null) = {
-      new Uri(Option(scheme),
-        Option(user),
-        Option(password),
-        Option(host),
-        if(port > 0) Some(port) else None,
-        pathParts,
-        query,
-        Option(fragment)
-      )
+
+    //For absolute URLs, add in an artificial path part to add the leading slash
+    val pathPartsMaybeLeadingSlash = if(host != null) PathPart.Empty +: pathParts else pathParts
+
+    new Uri(Option(scheme),
+      Option(user),
+      Option(password),
+      Option(host),
+      if(port > 0) Some(port) else None,
+      pathPartsMaybeLeadingSlash,
+      query,
+      Option(fragment)
+    )
   }
 
   def empty = apply()
